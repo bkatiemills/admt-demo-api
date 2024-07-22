@@ -31,7 +31,6 @@ struct DataInfo {
 struct DataSchema {
     _id: String,
     geolocation: GeoJSONPoint,
-    metadata: Vec<String>,
     CYCLE_NUMBER: i32,
     DIRECTION: String,
     DATA_STATE_INDICATOR: String,
@@ -51,6 +50,7 @@ struct DataSchema {
     data_info: Option<HashMap<String, DataInfo>>,
     level_qc: Option<HashMap<String, Vec<String>>>,
     adjusted_level_qc: Option<HashMap<String, Vec<String>>>,
+    source_file: String,
 }
 
 #[get("/query_params")]
