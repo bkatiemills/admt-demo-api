@@ -102,7 +102,7 @@ async fn search_data_schema(query_params: web::Query<serde_json::Value>) -> impl
         }
     }
     let data: Vec<String> = data_map.keys().cloned().collect();
-    
+
     let pres_range: Vec<f64> = query_params.get("presRange")
         .map(|p| p.as_str().unwrap().split(',').map(|s| s.parse::<f64>().unwrap()).collect())
         .unwrap_or(Vec::new());
@@ -165,7 +165,10 @@ async fn search_data_schema(query_params: web::Query<serde_json::Value>) -> impl
 
     let mut cursor = {
         let options = options_builder.build();
-        let guard = CLIENT.lock().unwrap();
+        let guard = match CLIENT.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         let client = guard.as_ref().unwrap();
         client.database("argo").collection::<MapSchema>("argo_search").find(filter, options).await.unwrap()
     }; // in theory the mutex is unlocked here, holding it as little as possible   
@@ -211,11 +214,18 @@ async fn search_data_schema(query_params: web::Query<serde_json::Value>) -> impl
             "data_info": 1,
             "source_file": 1,                 
         };
-        for item in &data {
-            projection.insert(&format!("realtime_data.{}", item), 1);
-            projection.insert(&format!("adjusted_data.{}", item), 1);
-            projection.insert(&format!("level_qc.{}", item), 1);
-            projection.insert(&format!("adjusted_level_qc.{}", item), 1);
+        if has_data{
+            for item in &data {
+                projection.insert(&format!("realtime_data.{}", item), 1);
+                projection.insert(&format!("adjusted_data.{}", item), 1);
+                projection.insert(&format!("level_qc.{}", item), 1);
+                projection.insert(&format!("adjusted_level_qc.{}", item), 1);
+            }
+        } else {
+            projection.insert("realtime_data", 1);
+            projection.insert("adjusted_data", 1);
+            projection.insert("level_qc", 1);
+            projection.insert("adjusted_level_qc", 1);
         }
 
         let data_options_builder = {        
@@ -225,7 +235,10 @@ async fn search_data_schema(query_params: web::Query<serde_json::Value>) -> impl
 
         let mut cursor = {
             let options = data_options_builder.build();
-            let guard = CLIENT.lock().unwrap();
+            let guard = match CLIENT.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
             let client = guard.as_ref().unwrap();
             client.database("argo").collection::<DataSchema>("argo").find(filter, options).await.unwrap()
         }; 
